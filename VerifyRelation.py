@@ -1,4 +1,4 @@
-from VerifyObjects import is_number
+from VerifyObjects import *
 
 
 class Relation():

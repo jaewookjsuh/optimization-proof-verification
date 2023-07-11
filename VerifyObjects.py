@@ -1075,11 +1075,10 @@ class FV(Scalar):
 
 ## class inherits Function to produce FV object
 class Function():
-    def __init__(self,name):
+    def __init__(self, name):
         self.name = name
 
     def __call__(self,x):
-#         name = self.name + "(" + str(x) + ")"
         return FV(self.name, x)
 
 
@@ -1105,7 +1104,7 @@ class ScalarSequence:
         self.name = name
 
     def __call__(self, k):
-        name = self.name + "^{" + str(k) + "}"
+        name = self.name + "_{" + str(k) + "}"
         return Scalar(name)
 
 
@@ -1162,10 +1161,11 @@ class Operator:
         return v
     
 
-## class to express algorithm settings with parameter k
+# class to express algorithm settings with parameter k
 class Sequence:
-    def __init__(self,name):
+    def __init__(self, name):
         self.name = name
 
     def __call__(self, k):
-        return Vector(k)
+        name = self.name + "^{" + str(k) + "}"
+        return Vector(name)
