@@ -111,3 +111,25 @@ class ge(Relation):
 class gt(Relation):
     relation_str = " > "
     relation_repr = " > "
+
+
+#python numbers
+def le_of_numbers(a,b):
+    if is_number(a) and is_number(b):
+        if a<=b:
+            result = le(a,b)
+            result.istrue = 1
+        else: result = lt(b,a)
+        return result
+    else: 
+        raise TypeError( "Please check the input types")
+
+def lt_of_numbers(a,b):
+    if is_number(a) and is_number(b):
+        if a<b:
+            result = lt(a,b)
+            result.istrue = 1
+        else: result = le(b,a)
+        return result
+    else: 
+        raise TypeError( "Please check the input types")
