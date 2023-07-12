@@ -33,7 +33,7 @@ def verify(prop, proof):
         return verify_and(prop, proof)
 
 ###--- When the statement is of form of for all scalar a~ ---###
-def verify_forall_scalar(prop,proof):
+def verify_forall_scalar(prop, proof):
     #arb_num = Scalar('arb_num')  #represents arbitrary number and vector
     return verify(prop(arb_n), proof)
 
