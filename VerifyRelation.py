@@ -21,6 +21,13 @@ class Relation():
 
     def _repr_latex_(self):
         return "$\\displaystyle %s$" % repr(self)
+    
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self.lhs == other.lhs and self.rhs == other.rhs
+
+    def __hash__(self):
+        return hash((self.lhs, self.relation_str, self.rhs))
 
     ## Method to get 'free variables' for Point as set
     def get_inde_Point(self):
@@ -105,7 +112,7 @@ class lt(Relation):
     relation_repr = " < "
 
 class ge(Relation):
-    relation_str = " => "
+    relation_str = " >= "
     relation_repr = " \\ge "
 
 class gt(Relation):
@@ -113,7 +120,7 @@ class gt(Relation):
     relation_repr = " > "
 
 
-#python numbers
+# python numbers, XXX 안 쓰임
 def le_of_numbers(a,b):
     if is_number(a) and is_number(b):
         if a<=b:

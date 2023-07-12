@@ -9,7 +9,7 @@ Var = set()
 us = Scalar('us') #universal scalar
 uv = Vector('uv') #universal vector
 arb_n = Scalar('arb_n') 
-
+arb_v = Vector('arb_v') 
 
 
 #####--------------------------- The main method, verify -----------------------------#####
@@ -42,6 +42,16 @@ def verify_forall_vector(prop,proof):
     arb_vec = Vector('arb_vec')
     return verify(prop(arb_vec), proof)
 
+### XXX 이건 뭐지?
+def verify_forall_le(fun, proof):
+    return verify_le(fun(us))
+
+###--- When the statement is of form of there exists~ ---###
+def verify_existence(ex, var, proof):  #works for one variable
+    if verify_equality(ex.predicate(var),proof) == True:
+        #propadd_eq(ex.predicate(var),proof)
+        Prop.add(ex)
+
 ###--- When the goal is equality ---###
 def verify_equality(eq, proof):
     #Look up in Prop
@@ -58,13 +68,12 @@ def verify_equality(eq, proof):
         return result == 0
 
     for step in proof:
-        if step in Prop:
+        if isinstance(step, lemma):
+            # print("lemma detected")              #add lemma
+            propadd_eq(step.claim, step.proof)
+        elif step in Prop:
             if isinstance(step, Equal):                 #substitution
-                print(f'before: {result}'+ f' with step {step} ')
                 result = result.substitute(step)
-                print(f'substitued to : {result}')
-            elif isinstance(step, lemma):               #add lemma
-                propadd_eq(lemma.claim, lemma.proof)
             elif isinstance(step, tactic):
             #if step.tactic in Tactic:
                 if callable(step.tactic):               #tactic
@@ -97,7 +106,6 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
             if step not in Prop:       #check if each proof step is verified
                 raise TypeError( f'Should first verify the current step: {step}') ### XXX should not be typeerror
                 return False ### XXX never reach here
-
         if isinstance(step, Equal):
             if not is_number(lhs):
                 lhs = lhs.substitute(step)
@@ -107,13 +115,11 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
                 rhs = rhs.substitute(step)
                 try: rhs = rhs.simplify()
                 except: pass
-
         if isinstance(step, le): #transitiivty
             if step.lhs == rhs:
                 rhs = step.rhs
             if step.rhs == lhs:
                 lhs = step.lhs
-
     try: 
         return lhs <= rhs #XXX??? 아 python 숫자일때? 근데 이러면 inequality가 반환될텐데
     except:
@@ -135,36 +141,36 @@ def verify_lt(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
   try: return lhs < rhs
   except:
     for step in proof:
-      if step not in Prop:       #check if each proof step is verified
-        raise TypeError( f'Should first verify the current step: {step}')
-        return False
+        if step not in Prop:       #check if each proof step is verified
+            raise TypeError( f'Should first verify the current step: {step}')
+            return False
 
-      if isinstance(step,Equal):
-        if not is_number(lhs):
-          lhs0 = lhs
-          lhs = lhs.substitute(step)
-          try:
-              lhs = lhs.simplify()
-              #print(f'lhs: {lhs0} to {lhs}')
-          except: pass
+        if isinstance(step,Equal):
+            if not is_number(lhs):
+                lhs0 = lhs
+                lhs = lhs.substitute(step)
+                try:
+                    lhs = lhs.simplify()
+                    #print(f'lhs: {lhs0} to {lhs}')
+                except: pass
 
         if not is_number(rhs):
-          rhs0 = rhs
-          rhs = rhs.substitute(step)
-          try:
-              rhs = rhs.simplify()
-              #print(f'rhs: {rhs0} to {rhs}')
-          except: pass
+            rhs0 = rhs
+            rhs = rhs.substitute(step)
+            try:
+                rhs = rhs.simplify()
+                #print(f'rhs: {rhs0} to {rhs}')
+            except: pass
 
-      if isinstance(step,lt): #transitiivty
-        if step.lhs == rhs:
-          rhs = step.rhs
-        if step.rhs == lhs:
-          lhs = step.lhs
-  try:
-    #print('000')
-    return lhs < rhs
-  except:
+        if isinstance(step,lt): #transitiivty
+            if step.lhs == rhs:
+                rhs = step.rhs
+            if step.rhs == lhs:
+                lhs = step.lhs
+    try:
+        #print('000')
+        return lhs < rhs
+    except:
         try:
             #print(f'aaa {0<(rhs-lhs).simplify()}')
             return 0<(rhs-lhs).simplify()
@@ -179,20 +185,13 @@ def verify_and(props, proofs):
         result = result and verify(props.prop_list[i], proofs[i])
     return result
 
-def verify_existence(ex, var, proof):  #works for one variable
-  if verify_equality(ex.predicate(var),proof) == True:
-      #propadd_eq(ex.predicate(var),proof)
-      Prop.add(ex)
-
-def verify_forall_le(fun,proof):
-      return verify_le(fun(us))
 
 
 #####--------------------------- induction -----------------------------#####
 def induction(prop, proof_0, proof_succ): #must put proofs in list
     target = [prop]
 
-    if isinstance(prop,prop_and): #for now we just assume that every target props are of fucntion type
+    if isinstance(prop, prop_and): #for now we just assume that every target props are of fucntion type
         target = prop.prop_list
     #if isinstance(ifthen)
 
@@ -203,7 +202,7 @@ def induction(prop, proof_0, proof_succ): #must put proofs in list
             raise TypeError('We only accept for all ~ in induction.')
         case_0.append(prop(0))
 
-    case_0_istrue = verify(prop_and(case_0),proof_0)
+    case_0_istrue = verify(prop_and(case_0), proof_0)
     print(f'case 0 : {case_0_istrue} ')
 
     #Case succ
@@ -216,19 +215,14 @@ def induction(prop, proof_0, proof_succ): #must put proofs in list
     print(f'case succ : {case_succ_istrue} ')
 
     if case_0_istrue and case_succ_istrue:
-          Prop.add(prop)
+        Prop.add(prop)
     else:
-          # print(f'Our failed target :: {prop_and(case_succ)}')
-          # print(f'Our failed proof :: {proof_succ}, \n Prop:')
-          # for qq in Prop:
-          #     print(qq)
-          raise ValueError(f'Induction failed.')
+        raise ValueError(f'Induction failed.')
 
 
 
 
 #####--------------------------- Propadds -----------------------------#####
-
 def propadd_assumption(prop):
     #if prop.istrue == 'assumed' :
     Prop.add(prop)
@@ -240,22 +234,22 @@ def propadd_eq(eq,proof):
         #print(f'{eq} added to Proposition data')
     else: print('failed to verify')
 
-def propadd_forall_scalar(forall_statement,proof): #For now this works for equalities with only one forall quantifier
+def propadd_forall_scalar(forall_statement, proof): #For now this works for equalities with only one forall quantifier
     u = us
-    if verify_equality(forall_statement(u),proof = []) == True:
+    if verify_equality(forall_statement(u), proof = []) == True:
         Prop.add (forall_statement)
         print('added to Proposition data')
     else: print('Failed to verify')
 
-def propadd_forall_vector(forall_statement,proof): #For now this works for equalities with only one forall quantifier
+def propadd_forall_vector(forall_statement, proof): #For now this works for equalities with only one forall quantifier
     u = uv
-    if verify_equality(forall_statement(u),proof = []) == True:
+    if verify_equality(forall_statement(u), proof = []) == True:
         Prop.add (forall_statement)
         print(f'{forall_statement} added to Proposition data')
     else: 
         print('Failed to verify')
 
-def propadd_intro(fun,u):
+def propadd_intro(fun, u):
     if fun in Prop:
         Prop.add(fun(u))
         try: Prop.add(fun(u).simplify()) #Temporary
@@ -264,21 +258,19 @@ def propadd_intro(fun,u):
         print('Failed to verify')
 
 
-def propadd_ineq(ineq,proof):
+def propadd_ineq(ineq, proof):
     if isinstance(ineq, le):
         if verify_le(ineq,proof) == True:
            Prop.add(ineq)
-
         else: raise ValueError(f'{ineq} not verified')
 
     elif isinstance(ineq, lt):
         if verify_lt(ineq,proof) == True:
             Prop.add(ineq)
-
         else: raise ValueError(f'{ineq} not verified')
     else: raise TypeError(f'Wrong input prop type: {type(ineq)}.')
 
-def propadd_ineq_intro(fun,case) :
+def propadd_ineq_intro(fun, case) :
     if fun in Prop:
       Prop.add(fun(case))
 
@@ -296,9 +288,8 @@ def propadd_simplify(prop):
             except: pass
             try: Prop.add(type(prop)(LHS,RHS))
             except:
-                  for p in prop:
-                      propadd_simplify(p)
-
+                for p in prop:
+                    propadd_simplify(p)
 
 
 ####--------------------- Classes ------------------####
@@ -314,13 +305,13 @@ class prop_and():
     def __str__(self):
         s = ""
         for prop in self.prop_list:
-            s+=f'{prop} & '
+            s += f'{prop} & '
         return s[:-3]
 
     def __repr__(self):
         s = ""
         for prop in self.prop_list:
-            s+=f'{prop} \\And '
+            s += f'{prop} \\And '
         return s[:-3]
 
     def _repr_latex_(self):
@@ -348,8 +339,9 @@ class tactic():
 
     def specify(self,arguments):
         if callable(self.arguments):
-          return tactic(self.tactic, self.claim(arguments))
-        else: raise ValueError('Check the claim type')
+            return tactic(self.tactic, self.claim(arguments))
+        else: 
+            raise ValueError('Check the claim type')
 
 
 ## exists 랑 ifthen은 뭐지?
@@ -509,7 +501,7 @@ def ineq_trans(ineq1, ineq2):
 
 ###---- basic ineqaulity from addition and multiplication ----###
 
-#nonegativity of square
+## nonegativity of square
 def square_nonneg(scalar):
     result = le(0 , scalar * scalar)
     result.istrue = 1
@@ -525,7 +517,7 @@ def sqrt_nonneg(term):
 
 #sum of nonneg is nonneg
 def sum_of_nonneg(a,b):
-    return ifthen( prop_and([le(0,a), le(0,b)]), le(0,a+b) )
+    return ifthen( prop_and([le(0,a), le(0,b)]), le(0, a+b) )
 
 
 

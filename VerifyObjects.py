@@ -89,7 +89,13 @@ class VerifyObject():
         return ge(self, other)
 
     def __le__(self, other):
-        return le(other, self)
+        return le(self, other)
+    
+    # def __lt__(self, other):
+    #     return lt(self, other)
+
+    # def __gt__(self, other):
+    #     return gt(self, other)
 
     ## We may want to think objects with same type and expression as same obejct
     def __eq__(self, other):
