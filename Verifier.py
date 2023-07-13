@@ -42,7 +42,7 @@ def verify_forall_vector(prop,proof):
     arb_vec = Vector('arb_vec')
     return verify(prop(arb_vec), proof)
 
-### XXX 이건 뭐지?
+### XXX
 def verify_forall_le(fun, proof):
     return verify_le(fun(us))
 
@@ -100,7 +100,7 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
     rhs = ineq.rhs
 
     try: 
-        return lhs <= rhs  #XXX??? 아 python 숫자일때? 근데 이러면 inequality가 반환될텐데
+        return lhs <= rhs  # XXX
     except:
         for step in proof:
             if step not in Prop:       #check if each proof step is verified
@@ -121,7 +121,7 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
             if step.rhs == lhs:
                 lhs = step.lhs
     try: 
-        return lhs <= rhs #XXX??? 아 python 숫자일때? 근데 이러면 inequality가 반환될텐데
+        return lhs <= rhs # XXX
     except:
         try: 
             return 0 <= (lhs-rhs).simplify()
@@ -129,7 +129,6 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
             return ( le(lhs,rhs) in Prop ) or ( le(0,(rhs-lhs).simplify()) in Prop ) or ( le((lhs-rhs).simplify(),0) in Prop )
 
 ###--- When the goal is strict inequality  ---###
-#XXX 같은 구조면 relation function도 변수로 받아서 그것만 대체하면 될듯.
 def verify_lt(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
 
   if ineq in Prop:            #check if it is already known to be true
@@ -257,7 +256,6 @@ def propadd_intro(fun, u):
     else: 
         print('Failed to verify')
 
-
 def propadd_ineq(ineq, proof):
     if isinstance(ineq, le):
         if verify_le(ineq,proof) == True:
@@ -344,7 +342,7 @@ class tactic():
             raise ValueError('Check the claim type')
 
 
-## exists 랑 ifthen은 뭐지?
+## 
 class exists():
     def __init__(self,eq_fun):
         self.predicate = eq_fun
@@ -372,7 +370,7 @@ class ifthen():
             self.istrue = 1
 
     def __str__(self):
-        s = str(self.condition) + " => " + str(self.consequence) ### XXX le과 기호가 같아서 위험함 
+        s = str(self.condition) + " => " + str(self.consequence) 
         return s
 
     def __repr__(self):
@@ -396,7 +394,7 @@ def MP(ifthen, P):
     else: 
         raise TypeError('Wrong Input for Modus Ponens')
 
-## XXX 필요한가? double negation
+## double negation
 def add_to_Prop_if_double_neg_in_Prop(prop):
     if isinstance(prop, neg) and isinstance(prop.inside, neg):
         prop.istrue = prop.inside.inside.istrue
@@ -616,7 +614,6 @@ def neg_of_le(scalar):
 
 
 
-### XXX 필요할까?
 class neg():
     def __init__(self, prop):
         self.inside = prop
