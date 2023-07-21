@@ -25,9 +25,11 @@ class Relation():
     def __eq__(self, other):
         if isinstance(other, type(self)):
             return self.lhs == other.lhs and self.rhs == other.rhs
+            # return self.lhs.simplify() == other.lhs.simplify() and self.rhs.simplify() == other.rhs.simplify()
 
     def __hash__(self):
         return hash((self.lhs, self.relation_str, self.rhs))
+        # return hash((self.lhs.simplify(), self.relation_str, self.rhs.simplify()))
 
     ## Method to get 'free variables' for Point as set
     def get_inde_Point(self):

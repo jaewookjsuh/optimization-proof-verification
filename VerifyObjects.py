@@ -1,4 +1,7 @@
+from logging import raiseExceptions
+from uu import Error
 from VerifyRelation import *
+# from Verifier import *
 
 ####--------------------------------------------- Ancestor object for verify objects -----------------------------------------------####
 class VerifyObject():
@@ -61,13 +64,13 @@ class VerifyObject():
 
     def __truediv__(self, other):
         if is_scalar_or_number(other):
-            return self.__mul__( ScalarPow(other, -1) )
+            return self.__mul__( other ** (-1) )
         else:
             raise TypeError( "Can't divide with " + str(type(other)) )
 
     def __rtruediv__(self, other):
         if is_scalar_or_number(self):
-            return ScalarPow(self, -1).__mul__( other )
+            return (self ** (-1)).__mul__( other )
         else:
             raise TypeError( "Can't divide with " + str(type(self)) )
 
@@ -85,17 +88,18 @@ class VerifyObject():
         return "$\\displaystyle %s$" % repr(self)
 
     ###------- Declaring inequality -------###
-    def __ge__(self, other):
-        return ge(self, other)
-
     def __le__(self, other):
         return le(self, other)
     
-    # def __lt__(self, other):
-    #     return lt(self, other)
+    def __lt__(self, other):
+        return lt(self, other)
 
-    # def __gt__(self, other):
-    #     return gt(self, other)
+    def __ge__(self, other):
+        # return ge(self, other)
+        return le(other, self)
+    
+    def __gt__(self, other):
+        return lt(other, self)
 
     ## We may want to think objects with same type and expression as same obejct
     def __eq__(self, other):
@@ -324,7 +328,7 @@ class Scalar(VerifyObject):
     is_integer = False
     is_positive = False
     is_negative = False
-    is_nonnegative = False
+    is_nonnegative = 'unknown'
     num_coeffi = 1
     exponent = 1
     IP_term = 1
@@ -437,6 +441,7 @@ class ScalarMul(Scalar):
         self.args = self.organize_args(args)
         self.IP_term = IP_term
         self.FV_term = FV_term
+        self.is_nonnegative = self.determine_nonnegativity()
 
     ## For each cases, other types of objects shoul be returned
     def __new__(cls, num_coeffi, args, IP_term, FV_term):
@@ -483,6 +488,28 @@ class ScalarMul(Scalar):
             s += MulScalScalStr + str(self.FV_term)
         if not self.IP_term==1:
             s += MulScalScalStr + str(self.IP_term)
+        return s
+    
+    def __repr__(self):
+        s = ""
+        if self.num_coeffi==-1:
+            s += "-" #+ MulScalScalStr
+        elif not self.num_coeffi==1:
+            s += repr(self.num_coeffi) 
+        if not self.args == ():
+            for i in range( len(self.args)-1 ):
+                if type( self.args[i] ) == ScalarAdd:
+                    s += "\left( " + repr( self.args[i] ) + " \\right)" 
+                else:
+                    s += repr( self.args[i] ) 
+            if type( self.args[-1] ) == ScalarAdd:
+                s += "\left(  " + repr( self.args[-1] ) + " \\right)"
+            else:
+                s += repr( self.args[-1] )
+        if not self.FV_term==1:
+            s += repr(self.FV_term)
+        if not self.IP_term==1:
+            s += repr(self.IP_term)
         return s
 
     def __pow__(self, other):
@@ -574,12 +601,27 @@ class ScalarMul(Scalar):
         except:
             result *= self.FV_term
         return result
+    
+    def determine_nonnegativity(self):
+        if self.num_coeffi>0: nonnegativity=1
+        elif self.num_coeffi<0: nonnegativity=-1
+
+        try:
+            for arg in self.args:
+                # if le(0,arg) in Prop: XXXX
+                #     pass
+                # else:
+                    nonnegativity *= arg.is_nonnegative
+            return nonnegativity
+        except:
+            return 'unknown'
 
 ###----- a + b -----###    
 class ScalarAdd(Scalar):
     def __init__(self, constant, args):
         self.constant, self.args = self.organize_args(constant, args)
         self.base = self
+        self.is_nonnegative = self.determine_nonnegativity()
 
     ## For each cases, other types of objects shoul be returned
     def __new__(cls, constant, args):
@@ -696,8 +738,25 @@ class ScalarAdd(Scalar):
     def substitute(self, sub_dict):
         result = self.constant
         for arg in self.args:
-            result += arg.substitute(sub_dict)
+            try:
+                result += arg.substitute(sub_dict)
+            except: pass
         return result
+    
+    def determine_nonnegativity(self):
+        if self.constant<0: return 'unknown'
+
+        # return 1 when all scalar are known to be nonnegative
+        try:
+            for arg in self.args:
+                # if ( arg.is_nonnegative != 1) and ( not le(0,arg) in Prop ):  XXXX
+                if arg.is_nonnegative != 1:
+                    return 'unknown'
+            return 1
+        except:
+            return 'unknown'
+
+
     
 ###----- a^2 -----### 
 class ScalarPow(Scalar):
@@ -718,6 +777,13 @@ class ScalarPow(Scalar):
         if type(self.base)==ScalarAdd:
             return "(" + str(self.base) + ")"+ "**{" + str(self.exponent) + "}"
         return str(self.base) + "**{" + str(self.exponent) + "}"
+    
+    def __repr__(self):
+        if self.exponent==1/2:
+            return "\sqrt{ " + repr(self.base) + "}"
+        if type(self.base)==ScalarAdd:
+            return "(" + repr(self.base) + ")"+ "^{" + repr(self.exponent) + "}"
+        return repr(self.base) + "^{" + repr(self.exponent) + "}"
 
     ## (x**a)**b = x**(ab)
     def __pow__(self, index):
@@ -766,8 +832,12 @@ class Sqrt(ScalarPow):
     def __init__(self, inside):
         self.base = inside
         self.exponent = 1/2
+        self.is_nonnegative = 1
 
     def __new__(cls, inside):
+        # if inside.is_nonnegative != 1:
+        #     raise Error('Should verify nonnegativity before defining square root.')
+
         if type(inside)==Scalar:
             return super().__new__(cls, inside, 1/2)
         else:
@@ -806,6 +876,8 @@ class Vector(VerifyObject):
 
     ## Scalar multiplication for vector
     def scal_vec_mul(self, scalar):
+        if self==ZeroVector:
+            return ZeroVector
         if type(self)==VectorMul:
             return VectorMul( scalar * self.coeffi , self.vector )
         elif type(self)==VectorAdd:
@@ -869,6 +941,8 @@ class VectorMul(Vector):
             return ZeroVector
         if coeffi==1:
             return vector
+        if vector==ZeroVector:
+            return ZeroVector
         return super().__new__(cls)
 
     def __str__(self):
@@ -992,6 +1066,11 @@ class IP(Scalar):
         self.args = og.sort_args( (args0, args1) )
         self.IP_term = self
         self.base = self
+    
+    def __new__(cls, args0, args1):
+        if args0 == ZeroVector or args1 == ZeroVector:
+            return 0
+        return super().__new__(cls)
 
     ## change IP expression to <,> and ||.||^2
     def __str__(self):
@@ -1035,7 +1114,7 @@ class IP(Scalar):
                 result += IP(arg_0, self.args[1])
         elif type(self.args[1])==VectorAdd:
             for arg_1 in self.args[1].args:
-                result = IP(self.args[0], arg_1)
+                result += IP(self.args[0], arg_1)
         else:
             return self.args[0].coeffi * self.args[1].coeffi * IP(self.args[0].vector, self.args[1].vector)
         return result
@@ -1045,10 +1124,85 @@ class IP(Scalar):
         arg1 = self.args[1].substitute(sub_dict)
         return IP(arg0, arg1)
 
-# square
-class Square(IP):
+# norm square
+class NS(IP):
     def __init__(self, arg):
         super().__init__(arg, arg)
+    
+    def __new__(cls, arg):
+        return super().__new__(cls, arg, arg)
+
+
+
+###--- IterationCount ---###
+## class for object about number of iteration, iteration may start with 0 or 1
+## keyword argument assumptions are not yet implemented
+class IterationCount(Scalar):
+    is_integer = True
+
+    def __init__(self, name, **kwargs):
+        if 'start' in kwargs:
+            if kwargs['start'] == 0:
+                return Scalar.__init__(self, name, integer=True, negative=False, **kwargs)
+            if kwargs['start'] == 1:
+                return Scalar.__init__(self, name, integer=True, positive=True, **kwargs)
+        else:
+            return Scalar.__init__(self, name, interger=True, positive=True, **kwargs)
+        
+
+class ScalarSequence:
+    def __init__(self,name):
+        self.name = name
+
+    def __call__(self, k):
+        name = self.name + "_{" + str(k) + "}"
+        return Scalar(name)
+
+
+#####----- Subclasses for vectors -----#####        
+
+   
+
+####---- Operator ----####
+class OV(Vector):
+    is_OV = True
+
+    def __init__(self, name, x):
+        super().__init__(name)
+        self.input = x
+        self.OV_term = self
+
+    def __str__(self):
+        s = self.name + "(" + str(self.input) + ")"
+        return s
+
+    ## Get 'free variable' of IP terms
+    def get_inde_IP(self):
+        return set()
+
+    ## Get 'free variable' of FV terms
+    def get_inde_OV(self):
+        return { self }
+
+    def substitute(self, sub_dict):
+        new_input = self.input.substitute(sub_dict)
+        if self.input!=new_input:
+            return OV(self.name, new_input)
+        else:
+            return super().substitute(sub_dict)
+
+
+
+    
+
+# class to express algorithm settings with parameter k
+class Sequence:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, k):
+        name = self.name + "^{" + str(k) + "}"
+        return Vector(name)
 
 
 ####----- Function Value ----####
@@ -1081,97 +1235,62 @@ class FV(Scalar):
 
 ## class inherits Function to produce FV object
 class Function():
-    def __init__(self, name):
-        self.name = name
+    is_convex = False
 
-    def __call__(self,x):
-        return FV(self.name, x)
-
-
-
-###--- IterationCount ---###
-## class for object about number of iteration, iteration may start with 0 or 1
-## keyword argument assumptions are not yet implemented
-class IterationCount(Scalar):
-    is_integer = True
-
+    # def __init__(self, name, domain, codomain, **kwargs):
     def __init__(self, name, **kwargs):
-        if 'start' in kwargs:
-            if kwargs['start'] == 0:
-                return Scalar.__init__(self, name, integer=True, negative=False, **kwargs)
-            if kwargs['start'] == 1:
-                return Scalar.__init__(self, name, integer=True, positive=True, **kwargs)
-        else:
-            return Scalar.__init__(self, name, interger=True, positive=True, **kwargs)
-        
-
-class ScalarSequence:
-    def __init__(self,name):
         self.name = name
+        # self.domain = domain
+        # self.codomain = codomain
+        # self.tup = {}
+        if 'convex' in kwargs: self.is_convex = kwargs['convex']
 
-    def __call__(self, k):
-        name = self.name + "_{" + str(k) + "}"
-        return Scalar(name)
-
-
-#####----- Subclasses for vectors -----#####        
-
-## class for vectors such as x^k, y^k, nable.f(x)
-class Point(Vector):
-    ## Method to get 'free variables' for Point as set
-    def get_inde_Point(self):
-        return { self }
+    def __call__(self, x):
+        # if type(x)==self.domain:
+        #     result = self.codomain(self.name, x)
+        #     self.tup[x] = result
+        #     return result
+        # else:
+        #     raise Exception("Wrong input")
+        if type(self)==Function:
+            return FV(self.name, x)
+        elif type(self)==Gradient:
+            return OV(self.name, x)
+        
+    def __str__(self):
+        return self.name
     
+    def __repr__(self):
+        return str(self)
+    
+    def _repr_latex_(self):
+        return "$\\displaystyle %s$" % repr(self)
 
-####---- Operator ----####
-class OV(Vector):
-    is_OV = True
-
-    def __init__(self, name, x):
-        super().__init__(name)
-        self.input = x
-        self.OV_term = self
+class Gradient(Function):
+    def __init__(self, input_function):
+        self.input_function = input_function
+        # self.domiain = input_function.codomain
+        # self.codomain = input_function.codomain
+        self.name = str(self)
 
     def __str__(self):
-        s = self.name + "(" + str(self.input) + ")"
-        return s
-
-    ## Get 'free variable' of IP terms
-    def get_inde_IP(self):
-        return set()
-
-    ## Get 'free variable' of FV terms
-    def get_inde_OV(self):
-        return { self }
-
-    def substitute(self, sub_dict):
-        new_input = self.input.substitute(sub_dict)
-        if self.input!=new_input:
-            return OV(self.name, new_input)
-        else:
-            return super().substitute(sub_dict)
-
-
-## class for Operators such as gradient
-class Operator:
-    def __init__(self,name):
-        self.name = name
-        self.zeros = []
-
-    def __call__(self,x:Vector):
-        return OV(self.name, x)
-
-    def zero(self,name):
-        v = Point(name)
-        self.zeros.append(v)
-        return v
+        return "▽" + str(self.input_function)
+    
+    def __repr__(self):
+        return "\\nabla " + repr(self.input_function)
     
 
-# class to express algorithm settings with parameter k
-class Sequence:
-    def __init__(self, name):
-        self.name = name
+# ## class for Operators such as gradient
+# class Operator:
+#     def __init__(self,name):
+#         self.name = name
+#         self.zeros = []
 
-    def __call__(self, k):
-        name = self.name + "^{" + str(k) + "}"
-        return Vector(name)
+#     def __call__(self,x:Vector):
+#         return OV(self.name, x)
+
+#     def zero(self,name):
+#         v = Vector(name)
+#         self.zeros.append(v)
+#         return v
+
