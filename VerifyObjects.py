@@ -11,6 +11,8 @@ class VerifyObject():
     is_IP = False
     is_FV = False
     is_Matrix = False
+    # facts = set()
+    facts = {}
 
     ###------- Addition and subtraction -------###
     def __add__(self, other):
@@ -776,9 +778,19 @@ class ScalarPow(Scalar):
     def __str__(self):
         if type(self.base)==ScalarAdd:
             return "(" + str(self.base) + ")"+ "**{" + str(self.exponent) + "}"
+        if type(self.base)==NS:
+            exponent = self.exponent * 2
+            if exponent==1:
+                return "||" + str(self.base.args[0]) + "||"
+            return "||" + str(self.base.args[0]) + "||" + "**{" + str(exponent) + "}"
         return str(self.base) + "**{" + str(self.exponent) + "}"
     
     def __repr__(self):
+        if type(self.base)==NS:
+            exponent = self.exponent * 2
+            if exponent==1:
+                return "||" + repr(self.base.args[0]) + "||"
+            return "||" + repr(self.base.args[0]) + "||" + "^{" + repr(exponent) + "}"
         if self.exponent==1/2:
             return "\sqrt{ " + repr(self.base) + "}"
         if type(self.base)==ScalarAdd:
@@ -1127,6 +1139,7 @@ class IP(Scalar):
 # norm square
 class NS(IP):
     def __init__(self, arg):
+        self.is_nonnegative = 1
         super().__init__(arg, arg)
     
     def __new__(cls, arg):
