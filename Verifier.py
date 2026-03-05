@@ -1,11 +1,13 @@
-from uu import Error
-from xmlrpc.client import Boolean
-from VerifyRelation import *
-from VerifyObjects import *
+﻿from xmlrpc.client import Boolean
+from verify_relation import *
+from verify_objects import *
+
+class VerificationError(Exception):
+    """Raised when a proof step or proposition precondition is invalid."""
 
 Prop = set()
 lemma = set()
-tactic = set()
+tactic = set()  # Most tactic-related implementation was done by Hyunsik Chae.
 Var = set()
 
 us = Scalar('us') #universal scalar
@@ -45,7 +47,6 @@ def verify(prop, proof):
 
 ###--- When the statement is of form of for all scalar a~ ---###
 def verify_forall_scalar(prop, proof):
-    #arb_num = Scalar('arb_num')  #represents arbitrary number and vector
     return verify(prop(arb_n), proof)
 
 ###--- When the statement is of form of for all vector v~ ---###
@@ -53,22 +54,17 @@ def verify_forall_vector(prop,proof):
     arb_vec = Vector('arb_vec')
     return verify(prop(arb_vec), proof)
 
-### XXX
+###--- When the statement is of form of for all scalar inequality ---###
 def verify_forall_le(fun, proof):
     return verify_le(fun(us))
 
-###--- When the statement is of form of there exists~ ---###
+###--- When the statement is of the form "there exists" ---###
 def verify_existence(ex, var, proof):  #works for one variable
     if verify_equality(ex.predicate(var),proof) == True:
-        #propadd_eq(ex.predicate(var),proof)
         Prop.add(ex)
 
 ###--- When the goal is equality ---###
 def verify_equality(eq, proof):
-    #Look up in Prop
-    # if eq in Prop:
-    #     return True
-
     try:    eq = eq.simplify()
     except: pass
 
@@ -88,7 +84,6 @@ def verify_equality(eq, proof):
 
     for step in proof:
         if isinstance(step, lemma):
-            # print("lemma detected")              #add lemma
             propadd_eq(step.claim, step.proof)
         elif step in Prop:
             if isinstance(step, Equal):                 #substitution
@@ -98,9 +93,9 @@ def verify_equality(eq, proof):
                 if callable(step.tactic):               #tactic
                     step.tactic(step.claim)
             else: 
-                raise TypeError(f'Cannot use the following step: {step}' ) ### XXX should not be typeerror
+                raise VerificationError(f'Cannot use the following step: {step}' )
         else:
-            raise TypeError( f'Should first verify the current step: {step}') ### XXX should not be typeerror
+            raise VerificationError( f'Should first verify the current step: {step}')
 
     #Check if LHS-RHS = 0
     if result == 0:
@@ -111,11 +106,10 @@ def verify_equality(eq, proof):
         return result.simplify().is_zero()
 
 ###--- When the goal is inequality ---###
-def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
-    # if ineq in Prop:            #check if it is already known to be true
+def verify_le(ineq, proof):
     #     return True
     
-    # XXX simplify before verifying
+    # Normalize before verification when simplify is available.
     try:    ineq = ineq.simplify()
     except: pass
 
@@ -132,9 +126,9 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
     else:
         for step in proof:
             if step not in Prop:       #check if each proof step is verified
-                raise Error( f'Should first verify the current step: {step}') 
+                raise VerificationError( f'Should first verify the current step: {step}') 
             
-            # XXX simplify before verifying
+            # Normalize proof steps before applying substitutions.
             try:    step=step.simplify()
             except: pass
             
@@ -154,7 +148,7 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
                     lhs = step.lhs
 
     if type(lhs <= rhs)==Boolean:
-        return lhs <= rhs  # XXX 
+        return lhs <= rhs
     else:
         try: 
             result = ( 0 <= (lhs-rhs).simplify() )
@@ -165,9 +159,9 @@ def verify_le(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
     return ( le(lhs,rhs) in Prop ) or ( le(0,(rhs-lhs).simplify()) in Prop ) or ( le((lhs-rhs).simplify(),0) in Prop )
 
 ###--- When the goal is strict inequality  ---###
-def verify_lt(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
+def verify_lt(ineq, proof):
 
-  if ineq in Prop:            #check if it is already known to be true
+  if ineq in Prop:
       return True
 
   lhs = ineq.lhs
@@ -186,7 +180,6 @@ def verify_lt(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
                 lhs = lhs.substitute(step)
                 try:
                     lhs = lhs.simplify()
-                    #print(f'lhs: {lhs0} to {lhs}')
                 except: pass
 
         if not is_number(rhs):
@@ -194,7 +187,6 @@ def verify_lt(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
             rhs = rhs.substitute(step)
             try:
                 rhs = rhs.simplify()
-                #print(f'rhs: {rhs0} to {rhs}')
             except: pass
 
         if isinstance(step,lt): #transitiivty
@@ -203,14 +195,11 @@ def verify_lt(ineq, proof): #FIRST LET'S JUST FOCUS ON PROVING THETA
             if step.rhs == lhs:
                 lhs = step.lhs
     try:
-        #print('000')
         return lhs < rhs
     except:
         try:
-            #print(f'aaa {0<(rhs-lhs).simplify()}')
             return 0<(rhs-lhs).simplify()
         except:
-            #print(f'bbb {lhs}, and {rhs}')
             return lt(lhs,rhs) in Prop or lt(0,(rhs-lhs).simplify()) in Prop or lt((lhs-rhs).simplify(),0) in Prop
 
 ###--- When the goal contains mutiple propositions ---###
@@ -228,7 +217,6 @@ def induction(prop, proof_0, proof_succ): #must put proofs in list
 
     if isinstance(prop, prop_and): #for now we just assume that every target props are of fucntion type
         target = prop.prop_list
-    #if isinstance(ifthen)
 
     #Case n=0
     case_0 = []
@@ -265,7 +253,6 @@ def propadd_assumption(prop):
 def propadd_eq(eq,proof):
     if verify_equality(eq,proof) == True:
         Prop.add(eq)
-        #print(f'{eq} added to Proposition data')
     else: print('failed to verify')
 
 def propadd_forall_scalar(forall_statement, proof): #For now this works for equalities with only one forall quantifier
@@ -324,7 +311,6 @@ def propadd_simplify(prop):
     if prop in Prop:
         try:
             Prop.add(prop.simplify())
-            #print(f'{prop} to {prop.simplify()}')
         except:
             try:
                 LHS = prop.lhs.simplify()
@@ -406,7 +392,7 @@ class tactic():
             raise ValueError('Check the claim type')
 
 
-## 
+
 class exists():
     def __init__(self,eq_fun):
         self.predicate = eq_fun
@@ -537,13 +523,8 @@ def lt_of_lt(lt1, lt2):
     else: raise TypeError('wrong input type')
 
 def ineq_trans(ineq1, ineq2):
-    ### XXX tuple로 비교하는게 좋을듯
+    # TODO: dispatch by relation-type tuple for cleaner branching.
     if ineq1.rhs != ineq2.lhs: raise TypeError('Cannot apply transitivity')
-
-    # if isinstance(ineq1,le) and isinstance(ineq2,le):   result = le_of_le(ineq1, ineq2)
-    # if isinstance(ineq1,le) and isinstance(ineq2,lt):   result = le_of_lt(ineq1, ineq2)
-    # if isinstance(ineq1,lt) and isinstance(ineq2,le):   result = lt_of_le(ineq1, ineq2)
-    # if isinstance(ineq1,lt) and isinstance(ineq2,lt):   result = lt_of_lt(ineq1, ineq2)
 
     lhs = ineq1.lhs
     rhs = ineq2.rhs
@@ -591,10 +572,10 @@ def transivity_eq_le_lt(ineq1, ineq2):
 def propadd_repeat_transivity_eq_le_lt(rel_list):
     result_rel = rel_list[0]
     if result_rel not in Prop:
-        raise Error(f'Should verify {result_rel} first')
+        raise VerificationError(f'Should verify {result_rel} first')
     for i in range(len(rel_list)-1):
         if rel_list[i+1] not in Prop:
-            raise Error(f'Should verify {rel_list[i+1]} first')
+            raise VerificationError(f'Should verify {rel_list[i+1]} first')
         result_rel = transivity_eq_le_lt(result_rel, rel_list[i+1])
     Prop.add(result_rel)
     return result_rel
@@ -602,13 +583,13 @@ def propadd_repeat_transivity_eq_le_lt(rel_list):
 
 def propadd_le_ge_to_nonneg(rel):
     if rel not in Prop:
-        raise Error(f'Should verify {rel} first')
+        raise VerificationError(f'Should verify {rel} first')
     if type(rel)==le:
         result = le( 0, rel.rhs - rel.lhs )
     elif type(rel)==ge:
         result = le( 0, rel.lhs - rel.rhs ) 
     else:
-        raise Error(f'{rel} is no a proper type for le_ge_to_nonneg')
+        raise VerificationError(f'{rel} is no a proper type for le_ge_to_nonneg')
     Prop.add(result)
     return result 
 
@@ -640,7 +621,7 @@ def propadd_sum_of_nonneg(a,b):
         Prop.add( le(0, a+b) )
         return le(0, a+b)
     else:
-        raise Error(f'Should verify {a} and {b} are nonnegative first')
+        raise VerificationError(f'Should verify {a} and {b} are nonnegative first')
 
 
 
@@ -702,7 +683,7 @@ def mul_inequality(ineq, multiplier):
                 Prop.add(result)
             return result
         else: 
-            raise Error( f"You can use this method before determining the sign of {multiplier}")
+            raise VerificationError( f"You can use this method before determining the sign of {multiplier}")
     else: 
         raise TypeError( "You should verify that you are multiplying an inequality.")
 

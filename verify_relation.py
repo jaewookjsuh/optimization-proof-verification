@@ -1,4 +1,8 @@
-from VerifyObjects import *
+﻿from numbers import Number
+
+def is_number(ob):
+    return isinstance(ob, Number)
+
 
 
 class Relation():
@@ -25,11 +29,9 @@ class Relation():
     def __eq__(self, other):
         if isinstance(other, type(self)):
             return self.lhs == other.lhs and self.rhs == other.rhs
-            # return self.lhs.simplify() == other.lhs.simplify() and self.rhs.simplify() == other.rhs.simplify()
 
     def __hash__(self):
         return hash((self.lhs, self.relation_str, self.rhs))
-        # return hash((self.lhs.simplify(), self.relation_str, self.rhs.simplify()))
 
     ## Method to get 'free variables' for Point as set
     def get_inde_Point(self):
@@ -122,7 +124,7 @@ class gt(Relation):
     relation_repr = " > "
 
 
-# python numbers, XXX 안 쓰임
+# Helper for raw Python number comparisons.
 def le_of_numbers(a,b):
     if is_number(a) and is_number(b):
         if a<=b:
@@ -142,3 +144,4 @@ def lt_of_numbers(a,b):
         return result
     else: 
         raise TypeError( "Please check the input types")
+
