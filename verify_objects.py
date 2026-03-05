@@ -1,7 +1,4 @@
-from logging import raiseExceptions
-from uu import Error
-from VerifyRelation import *
-# from Verifier import *
+﻿from verify_relation import *
 
 ####--------------------------------------------- Ancestor object for verify objects -----------------------------------------------####
 class VerifyObject():
@@ -11,7 +8,6 @@ class VerifyObject():
     is_IP = False
     is_FV = False
     is_Matrix = False
-    # facts = set()
     facts = {}
 
     ###------- Addition and subtraction -------###
@@ -154,7 +150,6 @@ class VerifyObject():
     def substitute(self, equality):
         if equality.lhs == self:
             return equality.rhs
-          # elif equality.rhs == self: return equality.lhs.  <- First leave this part to prevent unwanted way of substitution
         else:
             return self
 
@@ -326,7 +321,7 @@ def is_matrix(ob):
 class Scalar(VerifyObject):
     is_scalar = True
     is_real = True
-    ## initializing defaul setting
+    ## initializing default setting
     is_integer = False
     is_positive = False
     is_negative = False
@@ -610,10 +605,7 @@ class ScalarMul(Scalar):
 
         try:
             for arg in self.args:
-                # if le(0,arg) in Prop: XXXX
-                #     pass
-                # else:
-                    nonnegativity *= arg.is_nonnegative
+                nonnegativity *= arg.is_nonnegative
             return nonnegativity
         except:
             return 'unknown'
@@ -652,7 +644,7 @@ class ScalarAdd(Scalar):
         # If num_coeffi<0, erase "+" to avoid representation like a+ -b
         if len(self.args)>1:
             for i in range( 1, len(self.args) ):
-                try: # XXX 임시방편
+                try: # Fallback for args without num_coeffi.
                     if self.args[i].num_coeffi<0:
                         s += str( self.args[i] )
                     else:
@@ -708,7 +700,7 @@ class ScalarAdd(Scalar):
         ## Gather IP and FV terms in args
         inde_IPs, inde_FVs = set(), set()
         for arg in args:
-            if arg !=0:  #XXX 임시방편
+            if arg !=0:  # Skip zero terms before collecting independent terms.
                 inde_IPs = inde_IPs.union( arg.get_inde_IP() )
                 inde_FVs = inde_FVs.union( arg.get_inde_FV() )
 
@@ -722,7 +714,7 @@ class ScalarAdd(Scalar):
     def expand(self):
         result = 0
         for arg in self.args:
-            try: # 임시방편
+            try: # Fallback path for non-expandable terms.
                 result = result + arg.expand()
             except:
                 result = result + arg
@@ -751,7 +743,6 @@ class ScalarAdd(Scalar):
         # return 1 when all scalar are known to be nonnegative
         try:
             for arg in self.args:
-                # if ( arg.is_nonnegative != 1) and ( not le(0,arg) in Prop ):  XXXX
                 if arg.is_nonnegative != 1:
                     return 'unknown'
             return 1
@@ -847,9 +838,6 @@ class Sqrt(ScalarPow):
         self.is_nonnegative = 1
 
     def __new__(cls, inside):
-        # if inside.is_nonnegative != 1:
-        #     raise Error('Should verify nonnegativity before defining square root.')
-
         if type(inside)==Scalar:
             return super().__new__(cls, inside, 1/2)
         else:
@@ -1259,12 +1247,6 @@ class Function():
         if 'convex' in kwargs: self.is_convex = kwargs['convex']
 
     def __call__(self, x):
-        # if type(x)==self.domain:
-        #     result = self.codomain(self.name, x)
-        #     self.tup[x] = result
-        #     return result
-        # else:
-        #     raise Exception("Wrong input")
         if type(self)==Function:
             return FV(self.name, x)
         elif type(self)==Gradient:
@@ -1282,28 +1264,28 @@ class Function():
 class Gradient(Function):
     def __init__(self, input_function):
         self.input_function = input_function
-        # self.domiain = input_function.codomain
-        # self.codomain = input_function.codomain
         self.name = str(self)
 
     def __str__(self):
-        return "▽" + str(self.input_function)
+        return "â–½" + str(self.input_function)
     
     def __repr__(self):
         return "\\nabla " + repr(self.input_function)
     
 
-# ## class for Operators such as gradient
-# class Operator:
-#     def __init__(self,name):
-#         self.name = name
-#         self.zeros = []
+## class for Operators such as gradient
+class Operator:
+    def __init__(self,name):
+        self.name = name
+        self.zeros = []
 
-#     def __call__(self,x:Vector):
-#         return OV(self.name, x)
+    def __call__(self,x:Vector):
+        return OV(self.name, x)
 
-#     def zero(self,name):
-#         v = Vector(name)
-#         self.zeros.append(v)
-#         return v
+    def zero(self,name):
+        v = Vector(name)
+        self.zeros.append(v)
+        return v
+
+
 
