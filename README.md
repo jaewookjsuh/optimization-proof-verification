@@ -1,4 +1,4 @@
-﻿# inequality-proof-verification
+﻿# optimization-proof-verification
 
 This is a personal scratch project to build a **symbolic inner-product engine from scratch**
 and use it to verify inequalities in optimization.
